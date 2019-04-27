@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>TinyGo WebAssembly Canvas</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<script src="wasm_exec.js" defer></script>
+	<script src="wasm.js" defer></script>
+	<style>
+		body,pre { margin:0;padding:0; }
+		#mycanvas {
+			opacity:1.0;
+			width: 200px;
+			height: 200px;
+			border: 1px solid black;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>TinyGo WebAssembly Canvas</h1>
+
+	<!-- <button onclick="setTimeout(wasm.exports.docan, 3000)">Try it</button> -->
+	<p>Add two numbers, using WebAssembly:</p>
+	<input type="number" id="a" value="2" /> + <input type="number" id="b" value="2" /> = <input type="number" id="result" readonly />
+	<br /><br />
+	<canvas id="mycanvas">Your browser doesn't appear to support the canvas tag.</canvas>
+
+
+</body>
+</html>
