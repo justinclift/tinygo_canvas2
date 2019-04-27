@@ -8,6 +8,10 @@ function clearCanvas() {
   wasm.exports.clearCanvas();
 }
 
+function mouseDownHandler(evtDetails) {
+  wasm.exports.mouseDownHandler(evtDetails.clientX, evtDetails.clientY);
+}
+
 function drawLine() {
   wasm.exports.drawLine();
 }
@@ -18,6 +22,10 @@ function init() {
     WebAssembly.instantiateStreaming(fetch(WASM_URL), go.importObject).then(function (obj) {
       wasm = obj.instance;
       go.run(wasm);
+
+      // Set up mouse click handler
+      document.getElementById("mycanvas").addEventListener("mousedown", mouseDownHandler);
+
       clearCanvas();
     })
   } else {
@@ -27,13 +35,14 @@ function init() {
       WebAssembly.instantiate(bytes, go.importObject).then(function (obj) {
         wasm = obj.instance;
         go.run(wasm);
+
+        // Set up mouse click handler
+        document.getElementById("mycanvas").addEventListener("mousedown", mouseDownHandler);
+
         clearCanvas();
       })
     )
   }
-
-
-
 }
 
 init();

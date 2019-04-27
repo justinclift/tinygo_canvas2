@@ -8,10 +8,7 @@
 	<script src="wasm_exec.js" defer></script>
 	<script src="wasm.js" defer></script>
 	<style>
-		body,pre { margin:0;padding:0; }
-		.padded {
-			padding: 20px;
-		}
+		body,pre { margin:0;padding:20px; }
 		#mycanvas {
 			opacity:1.0;
 			width: 200px;
@@ -25,14 +22,11 @@
 <body>
 	<h1>TinyGo WebAssembly Canvas</h1>
 
-	<p class="padded">
-		<button onclick="drawLine()">Random Line</button>
-		<button onclick="setInterval(drawLine, 250)">Random lines</button>
+	<button onclick="drawLine()">Random Line</button>
+	<button onclick="setInterval(drawLine, 250)">Random lines</button>
 
-		<br /><br />
-		<canvas id="mycanvas">Your browser doesn't appear to support the canvas tag.</canvas>
-	</p>
+	<br /><br />
 
-
+	<canvas id="mycanvas">Your browser doesn't appear to support the canvas tag.</canvas>
 </body>
 </html>
