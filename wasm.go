@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	ctx           js.Value
-	height, width int
+	ctx            js.Value
+	height, width  int
+	startX, startY int
 )
 
 func main() {
@@ -29,15 +30,20 @@ func clearCanvas() {
 	// Clear the background
 	ctx.Set("fillStyle", "lightgrey")
 	ctx.Call("fillRect", 0, 0, width, height)
+
+	// Initialise starting point
+	startX = rand.Intn(width)
+	startY = rand.Intn(height)
 }
 
 //go:export drawLine
 func drawLine() {
-	// Generate random start and end points
-	startX := rand.Intn(width)
-	startY := rand.Intn(height)
-	endX := rand.Intn(width)
-	endY := rand.Intn(height)
+	endX := startX
+	endY := startY
+
+	// Generate new random start point
+	startX = rand.Intn(width)
+	startY = rand.Intn(height)
 
 	// Generate random colour
 	colR := rand.Intn(255)
