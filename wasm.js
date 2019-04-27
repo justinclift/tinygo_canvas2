@@ -8,10 +8,11 @@ function clearCanvas() {
   wasm.exports.clearCanvas();
 }
 
-function init() {
-  document.querySelector('#a').oninput = clearCanvas;
-  document.querySelector('#b').oninput = clearCanvas;
+function drawLine() {
+  wasm.exports.drawLine();
+}
 
+function init() {
   const go = new Go();
   if ('instantiateStreaming' in WebAssembly) {
     WebAssembly.instantiateStreaming(fetch(WASM_URL), go.importObject).then(function (obj) {

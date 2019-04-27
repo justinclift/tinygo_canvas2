@@ -14,6 +14,7 @@
 			width: 200px;
 			height: 200px;
 			border: 1px solid black;
+			border-radius: 10px;
 		}
 	</style>
 </head>
@@ -21,12 +22,10 @@
 <body>
 	<h1>TinyGo WebAssembly Canvas</h1>
 
-	<!-- <button onclick="setTimeout(wasm.exports.docan, 3000)">Try it</button> -->
-	<p>Add two numbers, using WebAssembly:</p>
-	<input type="number" id="a" value="2" /> + <input type="number" id="b" value="2" /> = <input type="number" id="result" readonly />
-	<br /><br />
-	<canvas id="mycanvas">Your browser doesn't appear to support the canvas tag.</canvas>
+	<button onclick="drawLine()">Draw Line</button>
 
+	<br /><br />
+	&nbsp; <canvas id="mycanvas">Your browser doesn't appear to support the canvas tag.</canvas>
 
 </body>
 </html>
