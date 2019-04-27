@@ -1,15 +1,18 @@
 package main
 
 import (
+	"math"
 	"math/rand"
 	"strconv"
 	"syscall/js"
 )
 
 var (
-	ctx            js.Value
-	height, width  int
-	startX, startY int
+	canvasEl, ctx, doc js.Value
+	graphWidth         float64
+	graphHeight        float64
+	height, width      int
+	startX, startY     int
 
 	debug = 1 // 1 = show debug message, 0 = don't
 )
@@ -19,9 +22,8 @@ func main() {
 
 //go:export clearCanvas
 func clearCanvas() {
-	// Initialise doc
-	doc := js.Global().Get("document")
-	canvasEl := doc.Call("getElementById", "mycanvas")
+	doc = js.Global().Get("document")
+	canvasEl = doc.Call("getElementById", "mycanvas")
 	width = doc.Get("body").Get("clientWidth").Int()
 	height = doc.Get("body").Get("clientHeight").Int()
 	canvasEl.Call("setAttribute", "width", width)
@@ -86,4 +88,49 @@ func mouseDownHandler(clientX int, clientY int) {
 	ctx.Call("moveTo", startX, startY)
 	ctx.Call("lineTo", endX, endY)
 	ctx.Call("stroke")
+}
+
+// Renders one frame of the animation
+func renderFrame() {
+	// Handle window resizing
+	curBodyW := doc.Get("body").Get("clientWidth").Int()
+	curBodyH := doc.Get("body").Get("clientHeight").Int()
+	if curBodyW != width || curBodyH != height {
+		width, height = curBodyW, curBodyH
+		canvasEl.Set("width", width)
+		canvasEl.Set("height", height)
+	}
+
+	// Setup useful variables
+	border := float64(2)
+	gap := float64(3)
+	left := border + gap
+	top := border + gap
+	graphWidth = float64(width) * 0.75
+	graphHeight = float64(height) - 1
+	//centerX := graphWidth / 2
+	//centerY := graphHeight / 2
+
+	// Clear the background
+	ctx.Set("fillStyle", "white")
+	ctx.Call("fillRect", 0, 0, width, height)
+
+	// Draw grid lines
+	step := math.Min(float64(width), float64(height)) / 30
+	ctx.Set("strokeStyle", "rgb(220, 220, 220)")
+	ctx.Call("setLineDash", []interface{}{1, 3})
+	for i := left; i < graphWidth-step; i += step {
+		// Vertical dashed lines
+		ctx.Call("beginPath")
+		ctx.Call("moveTo", i+step, top)
+		ctx.Call("lineTo", i+step, graphHeight)
+		ctx.Call("stroke")
+	}
+	for i := top; i < graphHeight-step; i += step {
+		// Horizontal dashed lines
+		ctx.Call("beginPath")
+		ctx.Call("moveTo", left, i+step)
+		ctx.Call("lineTo", graphWidth-border, i+step)
+		ctx.Call("stroke")
+	}
 }
