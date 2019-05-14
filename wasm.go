@@ -41,6 +41,10 @@ const (
 	KEY_PLUS
 )
 
+const (
+	sourceURL = "https://github.com/justinclift/tinygo_canvas_test1"
+)
+
 var (
 	// The empty world space
 	worldSpace []Object
@@ -88,20 +92,21 @@ var (
 	}
 
 	// The 4x4 identity matrix
-	identityMatrix = matrix{
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1,
-	}
+	//identityMatrix = matrix{
+	//	1, 0, 0, 0,
+	//	0, 1, 0, 0,
+	//	0, 0, 1, 0,
+	//	0, 0, 0, 1,
+	//}
 
 	// Initialise the transform matrix with the identity matrix
-	transformMatrix = identityMatrix
+	//transformMatrix = identityMatrix
 
 	canvasEl, ctx, doc js.Value
 	graphWidth         float64
 	graphHeight        float64
 	height, width      int
+	highLightSource    bool
 	pointStep          = 0.05
 
 	debug = false
@@ -160,6 +165,28 @@ func clearCanvas() {
 	firstDeriv.DrawOrder = 2
 	firstDeriv.Name = "firstDeriv"
 	worldSpace = append(worldSpace, importObject(firstDeriv, 0.0, 0.0, 0.0))
+}
+
+// Simple mouse handler watching for people clicking on the source code link
+//go:export clickHandler
+func clickHandler(cx int, cy int) {
+	clientX := float64(cx)
+	clientY := float64(cy)
+	if debug {
+		println("ClientX: " +  strconv.FormatFloat(clientX, 'f', 0, 64) + " clientY: " +  strconv.FormatFloat(clientY, 'f', 0, 64))
+		if clientX > graphWidth && clientY > (float64(height) - 40) {
+			println("URL hit!")
+		}
+	}
+
+	// If the user clicks the source code URL area, open the URL
+	if clientX > graphWidth && clientY > (float64(height)-40) {
+		w := js.Global().Call("open", sourceURL)
+		if w == js.Null() {
+			// Couldn't open a new window, so try loading directly in the existing one instead
+			doc.Set("location", sourceURL)
+		}
+	}
 }
 
 // Returns an object whose points have been transformed into 3D world space XYZ co-ordinates.  Also assigns a number
@@ -288,6 +315,23 @@ func matrixMult(opMatrix matrix, m matrix) (resultMatrix matrix) {
 	return resultMatrix
 }
 
+// Simple mouse handler watching for people moving the mouse over the source code link
+//go:export moveHandler
+func moveHandler(cx int, cy int) {
+	clientX := float64(cx)
+	clientY := float64(cy)
+	if debug {
+		println("ClientX: " +  strconv.FormatFloat(clientX, 'f', 0, 64) + " clientY: " +  strconv.FormatFloat(clientY, 'f', 0, 64))
+	}
+
+	// If the mouse is over the source code link, let the frame renderer know to draw the url in bold
+	if clientX > graphWidth && clientY > (float64(height)-40) {
+		highLightSource = true
+	} else {
+		highLightSource = false
+	}
+}
+
 // Renders one frame of the animation
 //go:export renderFrame
 func renderFrame(args []js.Value) {
@@ -408,10 +452,7 @@ func renderFrame(args []js.Value) {
 
 			// Draw dots for the points
 			ctx.Set("fillStyle", "black")
-			for z, l := range o.P {
-				if z > 36 { // DEBUG: Out of memory error happens here (for me, running Firefox on CentOS 7) when this changed to 37
-					break
-				}
+			for _, l := range o.P {
 				px = centerX + (l.X * step)
 				py = centerY + ((l.Y * step) * -1)
 				ctx.Call("beginPath")
@@ -470,12 +511,12 @@ func renderFrame(args []js.Value) {
 	ctx.Set("font", "bold 14px serif")
 	ctx.Call("fillText", "Source code:", graphWidth+20, graphHeight-35)
 	ctx.Set("fillStyle", "blue")
-	//if highLightSource == true {
-	//	ctx.Set("font", "bold 12px sans-serif")
-	//} else {
-	//	ctx.Set("font", "12px sans-serif")
-	//}
-	//ctx.Call("fillText", sourceURL, graphWidth+20, graphHeight-15)
+	if highLightSource == true {
+		ctx.Set("font", "bold 12px sans-serif")
+	} else {
+		ctx.Set("font", "12px sans-serif")
+	}
+	ctx.Call("fillText", sourceURL, graphWidth+20, graphHeight-15)
 
 	// Draw a border around the graph area
 	//ctx.Call("setLineDash", []interface{}{})

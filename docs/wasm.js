@@ -8,11 +8,17 @@ function clearCanvas() {
   wasm.exports.clearCanvas();
 }
 
-function keyPressHandler(evtDetails) {
-  // console.log(evtDetails);
+// Pass mouse clicks through to the wasm handler
+function clickHandler(evt) {
+  // console.log(evt);
+  wasm.exports.clickHandler(evt.clientX, evt.clientY);
+}
 
+// Pass key presses through to the wasm handler
+function keyPressHandler(evt) {
+  // console.log(evt);
   let key = 0;
-  switch(evtDetails.key) {
+  switch(evt.key) {
     case "ArrowLeft":
     case "a":
     case "A":
@@ -68,9 +74,17 @@ function keyPressHandler(evtDetails) {
   wasm.exports.keyPressHandler(key);
 }
 
-// function renderFrame() {
-//   wasm.exports.renderFrame();
-// }
+// Pass mouse movement events through to the wasm handler
+function moveHandler(evt) {
+  // console.log(evt);
+  wasm.exports.moveHandler(evt.clientX, evt.clientY);
+}
+
+function renderFrames() {
+  // setInterval(function() {
+    wasm.exports.renderFrame();
+  // },2000);
+}
 
 function init() {
   const go = new Go();
@@ -79,16 +93,16 @@ function init() {
       wasm = obj.instance;
       go.run(wasm);
 
-      // Set up key press handler
+      // Set up wasm event handlers
+      document.getElementById("mycanvas").addEventListener("mousedown", clickHandler);
       document.getElementById("mycanvas").addEventListener("keydown", keyPressHandler);
+      document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
 
       // Set up the canvas
       clearCanvas();
 
       // Set up basic render loop
-      // setInterval(function() {
-        wasm.exports.renderFrame();
-      // },250);
+      renderFrames();
     })
   } else {
     fetch(WASM_URL).then(resp =>
@@ -98,16 +112,16 @@ function init() {
         wasm = obj.instance;
         go.run(wasm);
 
-        // Set up key press handler
+        // Set up wasm event handlers
+        document.getElementById("mycanvas").addEventListener("mousedown", clickHandler);
         document.getElementById("mycanvas").addEventListener("keydown", keyPressHandler);
+        document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
 
         // Set up the canvas
         clearCanvas();
 
         // Set up basic render loop
-        // setInterval(function() {
-          wasm.exports.renderFrame();
-        // },250);
+        renderFrames();
       })
     )
   }
