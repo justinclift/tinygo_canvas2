@@ -80,10 +80,13 @@ function moveHandler(evt) {
   wasm.exports.moveHandler(evt.clientX, evt.clientY);
 }
 
+var framesRendered = 0;
 function renderFrames() {
-  // setInterval(function() {
+  if (framesRendered <= 1) {
+    console.log("Frames rendered: " + framesRendered);
+    framesRendered = framesRendered + 1;
     wasm.exports.renderFrame();
-  // },2000);
+  }
 }
 
 function init() {
@@ -102,7 +105,9 @@ function init() {
       clearCanvas();
 
       // Set up basic render loop
-      renderFrames();
+      setInterval(function() {
+        renderFrames();
+      },1000);
     })
   } else {
     fetch(WASM_URL).then(resp =>
@@ -121,7 +126,9 @@ function init() {
         clearCanvas();
 
         // Set up basic render loop
-        renderFrames();
+        setInterval(function() {
+          renderFrames();
+        },1000);
       })
     )
   }
