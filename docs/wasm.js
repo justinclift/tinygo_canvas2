@@ -82,11 +82,11 @@ function moveHandler(evt) {
 
 var framesRendered = 0;
 function renderFrames() {
-  if (framesRendered <= 1) {
+  // if (framesRendered <= 1) {
     console.log("Frames rendered: " + framesRendered);
     framesRendered = framesRendered + 1;
     wasm.exports.renderFrame();
-  }
+  // }
 }
 
 function init() {
@@ -107,7 +107,7 @@ function init() {
       // Set up basic render loop
       setInterval(function() {
         renderFrames();
-      },1000);
+      },50);
     })
   } else {
     fetch(WASM_URL).then(resp =>
@@ -128,7 +128,7 @@ function init() {
         // Set up basic render loop
         setInterval(function() {
           renderFrames();
-        },1000);
+        },50);
       })
     )
   }
