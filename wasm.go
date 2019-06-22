@@ -29,10 +29,14 @@ type Object struct {
 }
 
 const (
-	KEY_ARROW_LEFT int = iota + 1
-	KEY_ARROW_RIGHT
-	KEY_ARROW_UP
-	KEY_ARROW_DOWN
+	KEY_MOVE_LEFT int = iota + 1
+	KEY_MOVE_RIGHT
+	KEY_MOVE_UP
+	KEY_MOVE_DOWN
+	KEY_ROTATE_LEFT
+	KEY_ROTATE_RIGHT
+	KEY_ROTATE_UP
+	KEY_ROTATE_DOWN
 	KEY_PAGE_UP
 	KEY_PAGE_DOWN
 	KEY_HOME
@@ -44,7 +48,8 @@ const (
 type OperationType int
 
 const (
-	ROTATE OperationType = iota
+	NOTHING OperationType = iota
+	ROTATE
 	SCALE
 	TRANSLATE
 )
@@ -117,7 +122,12 @@ var (
 	opText             string
 	highLightSource    bool
 	pointStep          = 0.05
-	queueParts         int32
+	stepSize           = float64(25)
+
+	// Queue operations
+	prevKey    int
+	queueOp    OperationType
+	queueParts int32
 
 	debug = false
 )
@@ -243,15 +253,39 @@ func keyPressHandler(keyVal int) {
 		println("Key is: " + strconv.Itoa(keyVal))
 	}
 
-	stepSize := float64(25)
+	// If a key is pressed for a 2nd time in a row, then stop the animated movement
+	if keyVal == prevKey && queueOp != NOTHING {
+		queueOp = NOTHING
+		return
+	}
+
+	// The the plus or minus keys were pressed, increase the step size then cause the current operation to be recalculated
 	switch keyVal {
-	case KEY_ARROW_LEFT:
+	case KEY_MINUS:
+		stepSize -= 5.0
+		keyVal = prevKey
+	case KEY_PLUS:
+		stepSize += 5.0
+		keyVal = prevKey
+	}
+
+	// Set up translate and rotate operations
+	switch keyVal {
+	case KEY_MOVE_LEFT:
+		setUpOperation(TRANSLATE, 50, 12, stepSize/2, 0, 0)
+	case KEY_MOVE_RIGHT:
+		setUpOperation(TRANSLATE, 50, 12, -stepSize/2, 0, 0)
+	case KEY_MOVE_UP:
+		setUpOperation(TRANSLATE, 50, 12, 0, stepSize/2, 0)
+	case KEY_MOVE_DOWN:
+		setUpOperation(TRANSLATE, 50, 12, 0, -stepSize/2, 0)
+	case KEY_ROTATE_LEFT:
 		setUpOperation(ROTATE, 50, 12, 0, -stepSize, 0)
-	case KEY_ARROW_RIGHT:
+	case KEY_ROTATE_RIGHT:
 		setUpOperation(ROTATE, 50, 12, 0, stepSize, 0)
-	case KEY_ARROW_UP:
+	case KEY_ROTATE_UP:
 		setUpOperation(ROTATE, 50, 12, -stepSize, 0, 0)
-	case KEY_ARROW_DOWN:
+	case KEY_ROTATE_DOWN:
 		setUpOperation(ROTATE, 50, 12, stepSize, 0, 0)
 	case KEY_PAGE_UP:
 		setUpOperation(ROTATE, 50, 12, -stepSize, stepSize, 0)
@@ -261,11 +295,8 @@ func keyPressHandler(keyVal int) {
 		setUpOperation(ROTATE, 50, 12, -stepSize, -stepSize, 0)
 	case KEY_END:
 		setUpOperation(ROTATE, 50, 12, stepSize, -stepSize, 0)
-	case KEY_MINUS:
-		setUpOperation(ROTATE, 50, 12, 0, 0, -stepSize)
-	case KEY_PLUS:
-		setUpOperation(ROTATE, 50, 12, 0, 0, stepSize)
 	}
+	prevKey = keyVal
 }
 
 // Set up the details for the transformation operation
@@ -307,12 +338,13 @@ func setUpOperation(op OperationType, t int32, f int32, X float64, Y float64, Z 
 		transformMatrix = translate(transformMatrix, X/float64(queueParts), Y/float64(queueParts), Z/float64(queueParts))
 		opText = "Translate. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
 	}
+	queueOp = op
 }
 
 // Apply each transformation, one small part at a time (this gives the animation effect)
 //go:export applyTransformation
 func applyTransformation() {
-	if queueParts < 1 {
+	if (queueParts < 1 && queueOp == SCALE) || queueOp == NOTHING {
 		opText = "Complete."
 		return
 	}
@@ -543,10 +575,16 @@ func renderFrame() {
 	// Add the help text about control keys and mouse zoom
 	ctx.Set("fillStyle", "blue")
 	ctx.Set("font", "14px sans-serif")
-	ctx.Call("fillText", "Use wasd/numpad keys to rotate,", graphWidth+20, textY)
+	ctx.Call("fillText", "Use wasd to move, numpad keys", graphWidth+20, textY)
 	textY += 20
-	ctx.Call("fillText", "mouse wheel to zoom.", graphWidth+20, textY)
+	ctx.Call("fillText", "to rotate, mouse wheel to zoom.", graphWidth+20, textY)
 	textY += 30
+	ctx.Call("fillText", "+ and - keys to change speed.", graphWidth+20, textY)
+	textY += 30
+	ctx.Call("fillText", "Press a key a 2nd time to", graphWidth+20, textY)
+	textY += 20
+	ctx.Call("fillText", "stop the current change.", graphWidth+20, textY)
+	textY += 40
 
 	// Add the graph and derivatives information
 	ctx.Set("fillStyle", "black")

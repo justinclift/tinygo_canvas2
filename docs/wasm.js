@@ -10,63 +10,75 @@ function clearCanvas() {
 
 // Pass mouse clicks through to the wasm handler
 function clickHandler(evt) {
-  // console.log(evt);
   wasm.exports.clickHandler(evt.clientX, evt.clientY);
 }
 
 // Pass key presses through to the wasm handler
 function keyPressHandler(evt) {
-  // console.log(evt);
   let key = 0;
   switch(evt.key) {
-    case "ArrowLeft":
-    case "a":
-    case "A":
-    case "4":
-      key = 1;
-      break;
-    case "ArrowRight":
+    // Move keys
     case "d":
     case "D":
-    case "6":
+      key = 1;
+      break;
+    case "a":
+    case "A":
       key = 2;
       break;
-    case "ArrowUp":
     case "w":
     case "W":
-    case "8":
       key = 3;
       break;
-    case "ArrowDown":
     case "s":
     case "S":
-    case "2":
       key = 4;
+      break;
+
+    // Rotate keys
+    case "ArrowLeft":
+    case "4":
+      key = 5;
+      break;
+    case "ArrowRight":
+    case "6":
+      key = 6;
+      break;
+    case "ArrowUp":
+    case "8":
+      key = 7;
+      break;
+    case "ArrowDown":
+    case "2":
+      key = 8;
       break;
     case "PageUp":
     case "9":
-      key = 5;
+      key = 9;
       break;
     case "PageDown":
     case "3":
-      key = 6;
+      key = 10;
       break;
     case "Home":
     case "7":
-      key = 7;
+      key = 11;
       break;
     case "End":
     case "1":
-      key = 8;
+      key = 12;
       break;
+
+    // Change step size keys
     case "-":
-      key = 9;
+      key = 13;
       break;
     case "+":
-      key = 10;
+      key = 14;
       break;
+
+    // Unknown key press, don't pass it through
     default:
-      // Unknown key press, don't pass it through
       return;
   }
 
