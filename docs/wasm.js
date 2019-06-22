@@ -116,9 +116,6 @@ function init() {
       document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
       document.getElementById("mycanvas").addEventListener("wheel", wheelHandler);
 
-      // Set up the canvas
-      clearCanvas();
-
       // Set up basic render loop
       setInterval(function() {
         renderFrames();
@@ -137,9 +134,6 @@ function init() {
         document.getElementById("mycanvas").addEventListener("keydown", keyPressHandler);
         document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
         document.getElementById("mycanvas").addEventListener("wheel", wheelHandler);
-
-        // Set up the canvas
-        clearCanvas();
 
         // Set up basic render loop
         setInterval(function() {

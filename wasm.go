@@ -54,9 +54,7 @@ const (
 	TRANSLATE
 )
 
-const (
-	sourceURL = "https://github.com/justinclift/tinygo_canvas_test1"
-)
+const sourceURL = "https://github.com/justinclift/tinygo_canvas_test1"
 
 var (
 	// The empty world space
@@ -133,10 +131,6 @@ var (
 )
 
 func main() {
-}
-
-//go:export clearCanvas
-func clearCanvas() {
 	width := js.Global().Get("innerWidth").Int()
 	height := js.Global().Get("innerHeight").Int()
 	doc = js.Global().Get("document")
@@ -184,6 +178,30 @@ func clearCanvas() {
 	worldSpace = append(worldSpace, importObject(firstDeriv, 0.0, 0.0, 0.0))
 }
 
+// Apply each transformation, one small part at a time (this gives the animation effect)
+//go:export applyTransformation
+func applyTransformation() {
+	if (queueParts < 1 && queueOp == SCALE) || queueOp == NOTHING {
+		opText = "Complete."
+		return
+	}
+
+	// If the queue # if greater than zero, there are still transforms to do
+	for j, o := range worldSpace {
+		var newPoints []Point
+
+		// Transform each point of in the object
+		for _, j := range o.P {
+			newPoints = append(newPoints, transform(transformMatrix, j))
+		}
+		o.P = newPoints
+
+		// Update the object in world space
+		worldSpace[j] = o
+	}
+	queueParts--
+}
+
 // Simple mouse handler watching for people clicking on the source code link
 //go:export clickHandler
 func clickHandler(cx int, cy int) {
@@ -204,45 +222,6 @@ func clickHandler(cx int, cy int) {
 			doc.Set("location", sourceURL)
 		}
 	}
-}
-
-// Returns an object whose points have been transformed into 3D world space XYZ co-ordinates.  Also assigns a number
-// to each point
-//go:export importObject
-func importObject(ob Object, x float64, y float64, z float64) (translatedObject Object) {
-	// X and Y translation matrix.  Translates the objects into the world space at the given X and Y co-ordinates
-	translateMatrix := matrix{
-		1, 0, 0, x,
-		0, 1, 0, y,
-		0, 0, 1, z,
-		0, 0, 0, 1,
-	}
-
-	// Translate the points
-	var pt Point
-	for _, j := range ob.P {
-		pt = Point{
-			Label:      j.Label,
-			LabelAlign: j.LabelAlign,
-			X:          (translateMatrix[0] * j.X) + (translateMatrix[1] * j.Y) + (translateMatrix[2] * j.Z) + (translateMatrix[3] * 1),   // 1st col, top
-			Y:          (translateMatrix[4] * j.X) + (translateMatrix[5] * j.Y) + (translateMatrix[6] * j.Z) + (translateMatrix[7] * 1),   // 1st col, upper middle
-			Z:          (translateMatrix[8] * j.X) + (translateMatrix[9] * j.Y) + (translateMatrix[10] * j.Z) + (translateMatrix[11] * 1), // 1st col, lower middle
-		}
-		translatedObject.P = append(translatedObject.P, pt)
-	}
-
-	// Copy the remaining object info across
-	translatedObject.C = ob.C
-	translatedObject.Name = ob.Name
-	translatedObject.DrawOrder = ob.DrawOrder
-	for _, j := range ob.E {
-		translatedObject.E = append(translatedObject.E, j)
-	}
-	for _, j := range ob.S {
-		translatedObject.S = append(translatedObject.S, j)
-	}
-
-	return translatedObject
 }
 
 // Simple keyboard handler for catching the arrow, WASD, and numpad keys
@@ -299,116 +278,6 @@ func keyPressHandler(keyVal int) {
 	prevKey = keyVal
 }
 
-// Set up the details for the transformation operation
-//go:export setUpOperation
-func setUpOperation(op OperationType, t int32, f int32, X float64, Y float64, Z float64) {
-	queueParts = f                   // Number of parts to break each transformation into
-	transformMatrix = identityMatrix // Reset the transform matrix
-	switch op {
-	case ROTATE: // Rotate the objects in world space
-		// Divide the desired angle into a small number of parts
-		if X != 0 {
-			transformMatrix = rotateAroundX(transformMatrix, X/float64(queueParts))
-		}
-		if Y != 0 {
-			transformMatrix = rotateAroundY(transformMatrix, Y/float64(queueParts))
-		}
-		if Z != 0 {
-			transformMatrix = rotateAroundZ(transformMatrix, Z/float64(queueParts))
-		}
-		opText = "Rotation. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
-
-	case SCALE:
-		// Scale the objects in world space
-		var xPart, yPart, zPart float64
-		if X != 1 {
-			xPart = ((X - 1) / float64(queueParts)) + 1
-		}
-		if Y != 1 {
-			yPart = ((Y - 1) / float64(queueParts)) + 1
-		}
-		if Z != 1 {
-			zPart = ((Z - 1) / float64(queueParts)) + 1
-		}
-		transformMatrix = scale(transformMatrix, xPart, yPart, zPart)
-		opText = "Scale. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
-
-	case TRANSLATE:
-		// Translate (move) the objects in world space
-		transformMatrix = translate(transformMatrix, X/float64(queueParts), Y/float64(queueParts), Z/float64(queueParts))
-		opText = "Translate. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
-	}
-	queueOp = op
-}
-
-// Apply each transformation, one small part at a time (this gives the animation effect)
-//go:export applyTransformation
-func applyTransformation() {
-	if (queueParts < 1 && queueOp == SCALE) || queueOp == NOTHING {
-		opText = "Complete."
-		return
-	}
-
-	// If the queue # if greater than zero, there are still transforms to do
-	for j, o := range worldSpace {
-		var newPoints []Point
-
-		// Transform each point of in the object
-		for _, j := range o.P {
-			newPoints = append(newPoints, transform(transformMatrix, j))
-		}
-		o.P = newPoints
-
-		// Update the object in world space
-		worldSpace[j] = o
-	}
-	queueParts--
-}
-
-// Multiplies one matrix by another
-//go:export matrixMult
-func matrixMult(opMatrix matrix, m matrix) (resultMatrix matrix) {
-	top0 := m[0]
-	top1 := m[1]
-	top2 := m[2]
-	top3 := m[3]
-	upperMid0 := m[4]
-	upperMid1 := m[5]
-	upperMid2 := m[6]
-	upperMid3 := m[7]
-	lowerMid0 := m[8]
-	lowerMid1 := m[9]
-	lowerMid2 := m[10]
-	lowerMid3 := m[11]
-	bot0 := m[12]
-	bot1 := m[13]
-	bot2 := m[14]
-	bot3 := m[15]
-
-	resultMatrix = matrix{
-		(opMatrix[0] * top0) + (opMatrix[1] * upperMid0) + (opMatrix[2] * lowerMid0) + (opMatrix[3] * bot0), // 1st col, top
-		(opMatrix[0] * top1) + (opMatrix[1] * upperMid1) + (opMatrix[2] * lowerMid1) + (opMatrix[3] * bot1), // 2nd col, top
-		(opMatrix[0] * top2) + (opMatrix[1] * upperMid2) + (opMatrix[2] * lowerMid2) + (opMatrix[3] * bot2), // 3rd col, top
-		(opMatrix[0] * top3) + (opMatrix[1] * upperMid3) + (opMatrix[2] * lowerMid3) + (opMatrix[3] * bot3), // 4th col, top
-
-		(opMatrix[4] * top0) + (opMatrix[5] * upperMid0) + (opMatrix[6] * lowerMid0) + (opMatrix[7] * bot0), // 1st col, upper middle
-		(opMatrix[4] * top1) + (opMatrix[5] * upperMid1) + (opMatrix[6] * lowerMid1) + (opMatrix[7] * bot1), // 2nd col, upper middle
-		(opMatrix[4] * top2) + (opMatrix[5] * upperMid2) + (opMatrix[6] * lowerMid2) + (opMatrix[7] * bot2), // 3rd col, upper middle
-		(opMatrix[4] * top3) + (opMatrix[5] * upperMid3) + (opMatrix[6] * lowerMid3) + (opMatrix[7] * bot3), // 4th col, upper middle
-
-		(opMatrix[8] * top0) + (opMatrix[9] * upperMid0) + (opMatrix[10] * lowerMid0) + (opMatrix[11] * bot0), // 1st col, lower middle
-		(opMatrix[8] * top1) + (opMatrix[9] * upperMid1) + (opMatrix[10] * lowerMid1) + (opMatrix[11] * bot1), // 2nd col, lower middle
-		(opMatrix[8] * top2) + (opMatrix[9] * upperMid2) + (opMatrix[10] * lowerMid2) + (opMatrix[11] * bot2), // 3rd col, lower middle
-		(opMatrix[8] * top3) + (opMatrix[9] * upperMid3) + (opMatrix[10] * lowerMid3) + (opMatrix[11] * bot3), // 4th col, lower middle
-
-		(opMatrix[12] * top0) + (opMatrix[13] * upperMid0) + (opMatrix[14] * lowerMid0) + (opMatrix[15] * bot0), // 1st col, bottom
-		(opMatrix[12] * top1) + (opMatrix[13] * upperMid1) + (opMatrix[14] * lowerMid1) + (opMatrix[15] * bot1), // 2nd col, bottom
-		(opMatrix[12] * top2) + (opMatrix[13] * upperMid2) + (opMatrix[14] * lowerMid2) + (opMatrix[15] * bot2), // 3rd col, bottom
-		(opMatrix[12] * top3) + (opMatrix[13] * upperMid3) + (opMatrix[14] * lowerMid3) + (opMatrix[15] * bot3), // 4th col, bottom
-	}
-	return resultMatrix
-}
-
 // Simple mouse handler watching for people moving the mouse over the source code link
 //go:export moveHandler
 func moveHandler(cx int, cy int) {
@@ -455,7 +324,6 @@ func renderFrame() {
 	// Draw grid lines
 	step := math.Min(float64(width), float64(height)) / float64(30)
 	ctx.Set("strokeStyle", "rgb(220, 220, 220)")
-	//ctx.Call("setLineDash", []interface{}{1, 3})
 	for i := left; i < graphWidth-step; i += step {
 		// Vertical dashed lines
 		ctx.Call("beginPath")
@@ -475,9 +343,7 @@ func renderFrame() {
 	var pointX, pointY float64
 	ctx.Set("strokeStyle", "black")
 	ctx.Set("lineWidth", "1")
-	//ctx.Call("setLineDash", []interface{}{})
 	for _, o := range worldSpace {
-
 		// Draw the surfaces
 		ctx.Set("fillStyle", o.C)
 		for _, l := range o.S {
@@ -524,7 +390,6 @@ func renderFrame() {
 
 	// Draw the graph and derivatives
 	ctx.Set("lineWidth", "2")
-	//ctx.Call("setLineDash", []interface{}{})
 	var px, py float64
 	numWld := len(worldSpace)
 	for i := 0; i < numWld; i++ {
@@ -619,7 +484,6 @@ func renderFrame() {
 	ctx.Call("fillText", sourceURL, graphWidth+20, graphHeight-15)
 
 	// Draw a border around the graph area
-	//ctx.Call("setLineDash", []interface{}{})
 	ctx.Set("lineWidth", "2")
 	ctx.Set("strokeStyle", "white")
 	ctx.Call("beginPath")
@@ -640,8 +504,100 @@ func renderFrame() {
 	ctx.Call("stroke")
 }
 
+// Simple mouse handler watching for mouse wheel events
+// Reference info can be found here: https://developer.mozilla.org/en-US/docs/Web/Events/wheel
+//go:export wheelHandler
+func wheelHandler(val int32) {
+	wheelDelta := int64(val)
+	scaleSize := 1 + (float64(wheelDelta) / 5)
+	if debug {
+		println("Wheel delta: " + strconv.FormatInt(wheelDelta, 10) + " scaleSize: " + strconv.FormatInt(wheelDelta, 10) + "\n")
+	}
+	setUpOperation(SCALE, 50, 12, scaleSize, scaleSize, scaleSize)
+}
+
+// Returns an object whose points have been transformed into 3D world space XYZ co-ordinates.  Also assigns a number
+// to each point
+func importObject(ob Object, x float64, y float64, z float64) (translatedObject Object) {
+	// X and Y translation matrix.  Translates the objects into the world space at the given X and Y co-ordinates
+	translateMatrix := matrix{
+		1, 0, 0, x,
+		0, 1, 0, y,
+		0, 0, 1, z,
+		0, 0, 0, 1,
+	}
+
+	// Translate the points
+	var pt Point
+	for _, j := range ob.P {
+		pt = Point{
+			Label:      j.Label,
+			LabelAlign: j.LabelAlign,
+			X:          (translateMatrix[0] * j.X) + (translateMatrix[1] * j.Y) + (translateMatrix[2] * j.Z) + (translateMatrix[3] * 1),   // 1st col, top
+			Y:          (translateMatrix[4] * j.X) + (translateMatrix[5] * j.Y) + (translateMatrix[6] * j.Z) + (translateMatrix[7] * 1),   // 1st col, upper middle
+			Z:          (translateMatrix[8] * j.X) + (translateMatrix[9] * j.Y) + (translateMatrix[10] * j.Z) + (translateMatrix[11] * 1), // 1st col, lower middle
+		}
+		translatedObject.P = append(translatedObject.P, pt)
+	}
+
+	// Copy the remaining object info across
+	translatedObject.C = ob.C
+	translatedObject.Name = ob.Name
+	translatedObject.DrawOrder = ob.DrawOrder
+	for _, j := range ob.E {
+		translatedObject.E = append(translatedObject.E, j)
+	}
+	for _, j := range ob.S {
+		translatedObject.S = append(translatedObject.S, j)
+	}
+
+	return translatedObject
+}
+
+// Multiplies one matrix by another
+func matrixMult(opMatrix matrix, m matrix) (resultMatrix matrix) {
+	top0 := m[0]
+	top1 := m[1]
+	top2 := m[2]
+	top3 := m[3]
+	upperMid0 := m[4]
+	upperMid1 := m[5]
+	upperMid2 := m[6]
+	upperMid3 := m[7]
+	lowerMid0 := m[8]
+	lowerMid1 := m[9]
+	lowerMid2 := m[10]
+	lowerMid3 := m[11]
+	bot0 := m[12]
+	bot1 := m[13]
+	bot2 := m[14]
+	bot3 := m[15]
+
+	resultMatrix = matrix{
+		(opMatrix[0] * top0) + (opMatrix[1] * upperMid0) + (opMatrix[2] * lowerMid0) + (opMatrix[3] * bot0), // 1st col, top
+		(opMatrix[0] * top1) + (opMatrix[1] * upperMid1) + (opMatrix[2] * lowerMid1) + (opMatrix[3] * bot1), // 2nd col, top
+		(opMatrix[0] * top2) + (opMatrix[1] * upperMid2) + (opMatrix[2] * lowerMid2) + (opMatrix[3] * bot2), // 3rd col, top
+		(opMatrix[0] * top3) + (opMatrix[1] * upperMid3) + (opMatrix[2] * lowerMid3) + (opMatrix[3] * bot3), // 4th col, top
+
+		(opMatrix[4] * top0) + (opMatrix[5] * upperMid0) + (opMatrix[6] * lowerMid0) + (opMatrix[7] * bot0), // 1st col, upper middle
+		(opMatrix[4] * top1) + (opMatrix[5] * upperMid1) + (opMatrix[6] * lowerMid1) + (opMatrix[7] * bot1), // 2nd col, upper middle
+		(opMatrix[4] * top2) + (opMatrix[5] * upperMid2) + (opMatrix[6] * lowerMid2) + (opMatrix[7] * bot2), // 3rd col, upper middle
+		(opMatrix[4] * top3) + (opMatrix[5] * upperMid3) + (opMatrix[6] * lowerMid3) + (opMatrix[7] * bot3), // 4th col, upper middle
+
+		(opMatrix[8] * top0) + (opMatrix[9] * upperMid0) + (opMatrix[10] * lowerMid0) + (opMatrix[11] * bot0), // 1st col, lower middle
+		(opMatrix[8] * top1) + (opMatrix[9] * upperMid1) + (opMatrix[10] * lowerMid1) + (opMatrix[11] * bot1), // 2nd col, lower middle
+		(opMatrix[8] * top2) + (opMatrix[9] * upperMid2) + (opMatrix[10] * lowerMid2) + (opMatrix[11] * bot2), // 3rd col, lower middle
+		(opMatrix[8] * top3) + (opMatrix[9] * upperMid3) + (opMatrix[10] * lowerMid3) + (opMatrix[11] * bot3), // 4th col, lower middle
+
+		(opMatrix[12] * top0) + (opMatrix[13] * upperMid0) + (opMatrix[14] * lowerMid0) + (opMatrix[15] * bot0), // 1st col, bottom
+		(opMatrix[12] * top1) + (opMatrix[13] * upperMid1) + (opMatrix[14] * lowerMid1) + (opMatrix[15] * bot1), // 2nd col, bottom
+		(opMatrix[12] * top2) + (opMatrix[13] * upperMid2) + (opMatrix[14] * lowerMid2) + (opMatrix[15] * bot2), // 3rd col, bottom
+		(opMatrix[12] * top3) + (opMatrix[13] * upperMid3) + (opMatrix[14] * lowerMid3) + (opMatrix[15] * bot3), // 4th col, bottom
+	}
+	return resultMatrix
+}
+
 // Rotates a transformation matrix around the X axis by the given degrees
-//go:export rotateAroundX
 func rotateAroundX(m matrix, degrees float64) matrix {
 	rad := (math.Pi / 180) * degrees // The Go math functions use radians, so we convert degrees to radians
 	rotateXMatrix := matrix{
@@ -654,7 +610,6 @@ func rotateAroundX(m matrix, degrees float64) matrix {
 }
 
 // Rotates a transformation matrix around the Y axis by the given degrees
-//go:export rotateAroundY
 func rotateAroundY(m matrix, degrees float64) matrix {
 	rad := (math.Pi / 180) * degrees // The Go math functions use radians, so we convert degrees to radians
 	rotateYMatrix := matrix{
@@ -667,7 +622,6 @@ func rotateAroundY(m matrix, degrees float64) matrix {
 }
 
 // Rotates a transformation matrix around the Z axis by the given degrees
-//go:export rotateAroundZ
 func rotateAroundZ(m matrix, degrees float64) matrix {
 	rad := (math.Pi / 180) * degrees // The Go math functions use radians, so we convert degrees to radians
 	rotateZMatrix := matrix{
@@ -680,7 +634,6 @@ func rotateAroundZ(m matrix, degrees float64) matrix {
 }
 
 // Scales a transformation matrix by the given X, Y, and Z values
-//go:export scale
 func scale(m matrix, x float64, y float64, z float64) matrix {
 	scaleMatrix := matrix{
 		x, 0, 0, 0,
@@ -691,8 +644,48 @@ func scale(m matrix, x float64, y float64, z float64) matrix {
 	return matrixMult(scaleMatrix, m)
 }
 
+// Set up the details for the transformation operation
+func setUpOperation(op OperationType, t int32, f int32, X float64, Y float64, Z float64) {
+	queueParts = f                   // Number of parts to break each transformation into
+	transformMatrix = identityMatrix // Reset the transform matrix
+	switch op {
+	case ROTATE: // Rotate the objects in world space
+		// Divide the desired angle into a small number of parts
+		if X != 0 {
+			transformMatrix = rotateAroundX(transformMatrix, X/float64(queueParts))
+		}
+		if Y != 0 {
+			transformMatrix = rotateAroundY(transformMatrix, Y/float64(queueParts))
+		}
+		if Z != 0 {
+			transformMatrix = rotateAroundZ(transformMatrix, Z/float64(queueParts))
+		}
+		opText = "Rotation. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
+
+	case SCALE:
+		// Scale the objects in world space
+		var xPart, yPart, zPart float64
+		if X != 1 {
+			xPart = ((X - 1) / float64(queueParts)) + 1
+		}
+		if Y != 1 {
+			yPart = ((Y - 1) / float64(queueParts)) + 1
+		}
+		if Z != 1 {
+			zPart = ((Z - 1) / float64(queueParts)) + 1
+		}
+		transformMatrix = scale(transformMatrix, xPart, yPart, zPart)
+		opText = "Scale. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
+
+	case TRANSLATE:
+		// Translate (move) the objects in world space
+		transformMatrix = translate(transformMatrix, X/float64(queueParts), Y/float64(queueParts), Z/float64(queueParts))
+		opText = "Translate. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
+	}
+	queueOp = op
+}
+
 // Transform the XYZ co-ordinates using the values from the transformation matrix
-//go:export transform
 func transform(m matrix, p Point) (t Point) {
 	top0 := m[0]
 	top1 := m[1]
@@ -720,7 +713,6 @@ func transform(m matrix, p Point) (t Point) {
 }
 
 // Translates (moves) a transformation matrix by the given X, Y and Z values
-//go:export translate
 func translate(m matrix, translateX float64, translateY float64, translateZ float64) matrix {
 	translateMatrix := matrix{
 		1, 0, 0, translateX,
@@ -729,16 +721,4 @@ func translate(m matrix, translateX float64, translateY float64, translateZ floa
 		0, 0, 0, 1,
 	}
 	return matrixMult(translateMatrix, m)
-}
-
-// Simple mouse handler watching for mouse wheel events
-// Reference info can be found here: https://developer.mozilla.org/en-US/docs/Web/Events/wheel
-//go:export wheelHandler
-func wheelHandler(val int32) {
-	wheelDelta := int64(val)
-	scaleSize := 1 + (float64(wheelDelta) / 5)
-	if debug {
-		println("Wheel delta: " + strconv.FormatInt(wheelDelta, 10) + " scaleSize: " + strconv.FormatInt(wheelDelta, 10) + "\n")
-	}
-	setUpOperation(SCALE, 50, 12, scaleSize, scaleSize, scaleSize)
 }
