@@ -74,20 +74,22 @@ function keyPressHandler(evt) {
   wasm.exports.keyPressHandler(key);
 }
 
-// Pass mouse movement events through to the wasm handler
+// Pass mouse movement events through to its wasm handler
 function moveHandler(evt) {
   // console.log(evt);
   wasm.exports.moveHandler(evt.clientX, evt.clientY);
 }
 
-var framesRendered = 0;
 function renderFrames() {
-  // if (framesRendered <= 1) {
-    console.log("Frames rendered: " + framesRendered);
-    framesRendered = framesRendered + 1;
+    wasm.exports.applyTransformation();
     wasm.exports.renderFrame();
-  // }
 }
+
+// Pass mouse wheel events through to its wasm handler
+function wheelHandler(evt) {
+    wasm.exports.wheelHandler(evt.deltaY);
+}
+
 
 function init() {
   const go = new Go();
@@ -100,6 +102,7 @@ function init() {
       document.getElementById("mycanvas").addEventListener("mousedown", clickHandler);
       document.getElementById("mycanvas").addEventListener("keydown", keyPressHandler);
       document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
+      document.getElementById("mycanvas").addEventListener("wheel", wheelHandler);
 
       // Set up the canvas
       clearCanvas();
@@ -121,6 +124,7 @@ function init() {
         document.getElementById("mycanvas").addEventListener("mousedown", clickHandler);
         document.getElementById("mycanvas").addEventListener("keydown", keyPressHandler);
         document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
+        document.getElementById("mycanvas").addEventListener("wheel", wheelHandler);
 
         // Set up the canvas
         clearCanvas();

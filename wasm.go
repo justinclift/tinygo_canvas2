@@ -41,6 +41,14 @@ const (
 	KEY_PLUS
 )
 
+type OperationType int
+
+const (
+	ROTATE OperationType = iota
+	SCALE
+	TRANSLATE
+)
+
 const (
 	sourceURL = "https://github.com/justinclift/tinygo_canvas_test1"
 )
@@ -92,22 +100,24 @@ var (
 	}
 
 	// The 4x4 identity matrix
-	//identityMatrix = matrix{
-	//	1, 0, 0, 0,
-	//	0, 1, 0, 0,
-	//	0, 0, 1, 0,
-	//	0, 0, 0, 1,
-	//}
+	identityMatrix = matrix{
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
 
 	// Initialise the transform matrix with the identity matrix
-	//transformMatrix = identityMatrix
+	transformMatrix = identityMatrix
 
 	canvasEl, ctx, doc js.Value
 	graphWidth         float64
 	graphHeight        float64
 	height, width      int
+	opText             string
 	highLightSource    bool
 	pointStep          = 0.05
+	queueParts         int32
 
 	debug = false
 )
@@ -130,9 +140,6 @@ func clearCanvas() {
 	worldSpace = append(worldSpace, importObject(axes, 0.0, 0.0, 0.0))
 
 	// Create a graph object with the main data points on it
-	// TODO: Allow user input of equation to graph?
-	//       That will probably mean we need to pull in some general algebra system solver, to avoid having to write
-	//       one just for this (!).  At a first glance, corywalker/expreduce seems like it might be a decent fit.
 	var firstDeriv, graph Object
 	var p Point
 	graphLabeled := false
@@ -173,8 +180,8 @@ func clickHandler(cx int, cy int) {
 	clientX := float64(cx)
 	clientY := float64(cy)
 	if debug {
-		println("ClientX: " +  strconv.FormatFloat(clientX, 'f', 0, 64) + " clientY: " +  strconv.FormatFloat(clientY, 'f', 0, 64))
-		if clientX > graphWidth && clientY > (float64(height) - 40) {
+		println("ClientX: " + strconv.FormatFloat(clientX, 'f', 0, 64) + " clientY: " + strconv.FormatFloat(clientY, 'f', 0, 64))
+		if clientX > graphWidth && clientY > (float64(height)-40) {
 			println("URL hit!")
 		}
 	}
@@ -233,42 +240,97 @@ func importObject(ob Object, x float64, y float64, z float64) (translatedObject 
 //go:export keyPressHandler
 func keyPressHandler(keyVal int) {
 	if debug {
-		println("Key is: " +  strconv.Itoa(keyVal))
+		println("Key is: " + strconv.Itoa(keyVal))
 	}
 
-	//stepSize := float64(25)
+	stepSize := float64(25)
 	switch keyVal {
 	case KEY_ARROW_LEFT:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: 0, Y: -stepSize, Z: 0}
-		println("Left arrow pressed")
+		setUpOperation(ROTATE, 50, 12, 0, -stepSize, 0)
 	case KEY_ARROW_RIGHT:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: 0, Y: stepSize, Z: 0}
-		println("Right arrow pressed")
+		setUpOperation(ROTATE, 50, 12, 0, stepSize, 0)
 	case KEY_ARROW_UP:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: -stepSize, Y: 0, Z: 0}
-		println("Up arrow pressed")
+		setUpOperation(ROTATE, 50, 12, -stepSize, 0, 0)
 	case KEY_ARROW_DOWN:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: stepSize, Y: 0, Z: 0}
-		println("Down arrow pressed")
+		setUpOperation(ROTATE, 50, 12, stepSize, 0, 0)
 	case KEY_PAGE_UP:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: -stepSize, Y: stepSize, Z: 0}
-		println("Page up pressed")
+		setUpOperation(ROTATE, 50, 12, -stepSize, stepSize, 0)
 	case KEY_PAGE_DOWN:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: stepSize, Y: stepSize, Z: 0}
-		println("Page down pressed")
+		setUpOperation(ROTATE, 50, 12, stepSize, stepSize, 0)
 	case KEY_HOME:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: -stepSize, Y: -stepSize, Z: 0}
-		println("Home key pressed")
+		setUpOperation(ROTATE, 50, 12, -stepSize, -stepSize, 0)
 	case KEY_END:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: stepSize, Y: -stepSize, Z: 0}
-		println("End key pressed")
+		setUpOperation(ROTATE, 50, 12, stepSize, -stepSize, 0)
 	case KEY_MINUS:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: 0, Y: 0, Z: -stepSize}
-		println("Minus key pressed")
+		setUpOperation(ROTATE, 50, 12, 0, 0, -stepSize)
 	case KEY_PLUS:
-		//queue <- Operation{op: ROTATE, t: 50, f: 12, X: 0, Y: 0, Z: stepSize}
-		println("Plus pressed")
+		setUpOperation(ROTATE, 50, 12, 0, 0, stepSize)
 	}
+}
+
+// Set up the details for the transformation operation
+//go:export setUpOperation
+func setUpOperation(op OperationType, t int32, f int32, X float64, Y float64, Z float64) {
+	queueParts = f                   // Number of parts to break each transformation into
+	transformMatrix = identityMatrix // Reset the transform matrix
+	switch op {
+	case ROTATE: // Rotate the objects in world space
+		// Divide the desired angle into a small number of parts
+		if X != 0 {
+			transformMatrix = rotateAroundX(transformMatrix, X/float64(queueParts))
+		}
+		if Y != 0 {
+			transformMatrix = rotateAroundY(transformMatrix, Y/float64(queueParts))
+		}
+		if Z != 0 {
+			transformMatrix = rotateAroundZ(transformMatrix, Z/float64(queueParts))
+		}
+		opText = "Rotation. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
+
+	case SCALE:
+		// Scale the objects in world space
+		var xPart, yPart, zPart float64
+		if X != 1 {
+			xPart = ((X - 1) / float64(queueParts)) + 1
+		}
+		if Y != 1 {
+			yPart = ((Y - 1) / float64(queueParts)) + 1
+		}
+		if Z != 1 {
+			zPart = ((Z - 1) / float64(queueParts)) + 1
+		}
+		transformMatrix = scale(transformMatrix, xPart, yPart, zPart)
+		opText = "Scale. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
+
+	case TRANSLATE:
+		// Translate (move) the objects in world space
+		transformMatrix = translate(transformMatrix, X/float64(queueParts), Y/float64(queueParts), Z/float64(queueParts))
+		opText = "Translate. X: " + strconv.FormatFloat(X, 'f', 0, 64) + " Y: " + strconv.FormatFloat(Y, 'f', 0, 64) + " Z: " + strconv.FormatFloat(Z, 'f', 0, 64)
+	}
+}
+
+// Apply each transformation, one small part at a time (this gives the animation effect)
+//go:export applyTransformation
+func applyTransformation() {
+	if queueParts < 1 {
+		opText = "Complete."
+		return
+	}
+
+	// If the queue # if greater than zero, there are still transforms to do
+	for j, o := range worldSpace {
+		var newPoints []Point
+
+		// Transform each point of in the object
+		for _, j := range o.P {
+			newPoints = append(newPoints, transform(transformMatrix, j))
+		}
+		o.P = newPoints
+
+		// Update the object in world space
+		worldSpace[j] = o
+	}
+	queueParts--
 }
 
 // Multiplies one matrix by another
@@ -321,7 +383,7 @@ func moveHandler(cx int, cy int) {
 	clientX := float64(cx)
 	clientY := float64(cy)
 	if debug {
-		println("ClientX: " +  strconv.FormatFloat(clientX, 'f', 0, 64) + " clientY: " +  strconv.FormatFloat(clientY, 'f', 0, 64))
+		println("ClientX: " + strconv.FormatFloat(clientX, 'f', 0, 64) + " clientY: " + strconv.FormatFloat(clientY, 'f', 0, 64))
 	}
 
 	// If the mouse is over the source code link, let the frame renderer know to draw the url in bold
@@ -334,7 +396,7 @@ func moveHandler(cx int, cy int) {
 
 // Renders one frame of the animation
 //go:export renderFrame
-func renderFrame(args []js.Value) {
+func renderFrame() {
 	// Handle window resizing
 	curBodyW := js.Global().Get("innerWidth").Int()
 	curBodyH := js.Global().Get("innerHeight").Int()
@@ -475,7 +537,7 @@ func renderFrame(args []js.Value) {
 	ctx.Call("fillText", "Operation:", graphWidth+20, textY)
 	textY += 20
 	ctx.Set("font", "14px sans-serif")
-	//ctx.Call("fillText", opText, graphWidth+20, textY)
+	ctx.Call("fillText", opText, graphWidth+20, textY)
 	textY += 30
 
 	// Add the help text about control keys and mouse zoom
@@ -539,7 +601,6 @@ func renderFrame(args []js.Value) {
 	ctx.Call("closePath")
 	ctx.Call("stroke")
 }
-
 
 // Rotates a transformation matrix around the X axis by the given degrees
 //go:export rotateAroundX
@@ -630,4 +691,16 @@ func translate(m matrix, translateX float64, translateY float64, translateZ floa
 		0, 0, 0, 1,
 	}
 	return matrixMult(translateMatrix, m)
+}
+
+// Simple mouse handler watching for mouse wheel events
+// Reference info can be found here: https://developer.mozilla.org/en-US/docs/Web/Events/wheel
+//go:export wheelHandler
+func wheelHandler(val int32) {
+	wheelDelta := int64(val)
+	scaleSize := 1 + (float64(wheelDelta) / 5)
+	if debug {
+		println("Wheel delta: " + strconv.FormatInt(wheelDelta, 10) + " scaleSize: " + strconv.FormatInt(wheelDelta, 10) + "\n")
+	}
+	setUpOperation(SCALE, 50, 12, scaleSize, scaleSize, scaleSize)
 }
