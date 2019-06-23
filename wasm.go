@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"sort"
 	"strconv"
 	"syscall/js"
 )
@@ -9,23 +10,21 @@ import (
 type matrix []float64
 
 type Point struct {
-	Label      string
-	LabelAlign string
-	X          float64
-	Y          float64
-	Z          float64
+	Num int
+	X   float64
+	Y   float64
+	Z   float64
 }
 
 type Edge []int
 type Surface []int
 
 type Object struct {
-	C         string // Colour of the object
-	P         []Point
-	E         []Edge    // List of points to connect by edges
-	S         []Surface // List of points to connect in order, to create a surface
-	DrawOrder int       // Draw order for the object
-	Name      string
+	C   string // Colour of the object
+	P   []Point
+	E   []Edge    // List of points to connect by edges
+	S   []Surface // List of points to connect in order, to create a surface
+	Mid Point     // The mid point of the object.  Used for calculating object draw order in a very simple way
 }
 
 const (
@@ -54,51 +53,101 @@ const (
 	TRANSLATE
 )
 
-const sourceURL = "https://github.com/justinclift/tinygo_canvas_test1"
+type paintOrder struct {
+	midZ float64 // Z depth of an object's mid point
+	name string
+}
+
+type paintOrderSlice []paintOrder
+
+func (p paintOrder) String() string {
+	return "Name: " + p.name + ", Mid point: " + strconv.FormatFloat(p.midZ, 'f', 1, 64)
+}
+
+func (p paintOrderSlice) Len() int {
+	return len(p)
+}
+
+func (p paintOrderSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+func (p paintOrderSlice) Less(i, j int) bool {
+	return p[i].midZ < p[j].midZ
+}
+
+const sourceURL = "https://github.com/justinclift/tinygo_canvas2"
 
 var (
 	// The empty world space
-	worldSpace []Object
+	worldSpace   map[string]Object
+	pointCounter = 1
 
 	// The point objects
-	axes = Object{
-		C:         "grey",
-		DrawOrder: 0,
-		Name:      "axes",
+	object1 = Object{
+		C: "lightblue",
 		P: []Point{
-			{X: -0.1, Y: 0.1, Z: 0.0},
-			{X: -0.1, Y: 10, Z: 0.0},
-			{X: 0.1, Y: 10, Z: 0.0},
-			{X: 0.1, Y: 0.1, Z: 0.0},
-			{X: 10, Y: 0.1, Z: 0.0},
-			{X: 10, Y: -0.1, Z: 0.0},
-			{X: 0.1, Y: -0.1, Z: 0.0},
-			{X: 0.1, Y: -10, Z: 0.0},
-			{X: -0.1, Y: -10, Z: 0.0},
-			{X: -0.1, Y: -0.1, Z: 0.0},
-			{X: -10, Y: -0.1, Z: 0.0},
-			{X: -10, Y: 0.1, Z: 0.0},
-			{X: 10, Y: -1.0, Z: 0.0, Label: "X", LabelAlign: "center"},
-			{X: -10, Y: -1.0, Z: 0.0, Label: "-X", LabelAlign: "center"},
-			{X: 0.0, Y: 10.5, Z: 0.0, Label: "Y", LabelAlign: "center"},
-			{X: 0.0, Y: -11, Z: 0.0, Label: "-Y", LabelAlign: "center"},
+			{X: 0, Y: 1.75, Z: 1.0},    // Point 0 for this object
+			{X: 1.5, Y: -1.75, Z: 1.0}, // Point 1 for this object
+			{X: -1.5, Y: -1.75, Z: 1.0},
+			{X: 0, Y: 0, Z: 1.75},
+		},
+		E: []Edge{
+			{0, 1}, // Connect point 0 to point 1
+			{0, 2}, // Connect point 0 to point 2
+			{1, 2}, // Connect point 1 to point 2
+			{0, 3}, // etc
+			{1, 3},
+			{2, 3},
+		},
+		S: []Surface{
+			{0, 1, 3},
+			{0, 2, 3},
+			{0, 1, 2},
+			{1, 2, 3},
+		},
+	}
+	object2 = Object{
+		C: "lightgreen",
+		P: []Point{
+			{X: 1.5, Y: 1.5, Z: -1.0},  // Point 0 for this object
+			{X: 1.5, Y: -1.5, Z: -1.0}, // Point 1 for this object
+			{X: -1.5, Y: -1.5, Z: -1.0},
+		},
+		E: []Edge{
+			{0, 1}, // Connect point 0 to point 1
+			{1, 2}, // Connect point 1 to point 2
+			{2, 0}, // etc
+		},
+		S: []Surface{
+			{0, 1, 2},
+		},
+	}
+	object3 = Object{
+		C: "indianred",
+		P: []Point{
+			{X: 2, Y: -2, Z: 1.0},
+			{X: 2, Y: -4, Z: 1.0},
+			{X: -2, Y: -4, Z: 1.0},
+			{X: -2, Y: -2, Z: 1.0},
+			{X: 0, Y: -3, Z: 2.5},
 		},
 		E: []Edge{
 			{0, 1},
 			{1, 2},
 			{2, 3},
+			{3, 0},
+			{0, 4},
+			{1, 4},
+			{2, 4},
 			{3, 4},
-			{4, 5},
-			{5, 6},
-			{6, 7},
-			{7, 8},
-			{8, 9},
-			{9, 10},
-			{10, 11},
-			{11, 0},
 		},
 		S: []Surface{
-			{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+			{0, 1, 4},
+			{1, 2, 4},
+			{2, 3, 4},
+			{3, 0, 4},
+			{0, 1, 2, 3},
 		},
 	}
 
@@ -116,11 +165,10 @@ var (
 	canvasEl, ctx, doc js.Value
 	graphWidth         float64
 	graphHeight        float64
-	height, width      int
+	width, height      float64
 	opText             string
 	highLightSource    bool
-	pointStep          = 0.05
-	stepSize           = float64(25)
+	stepSize           = float64(30)
 
 	// Queue operations
 	prevKey    int
@@ -140,42 +188,21 @@ func main() {
 	canvasEl.Set("tabIndex", 0) // Not sure if this is needed
 	ctx = canvasEl.Call("getContext", "2d")
 
-	// Add the X/Y axes object to the world space
-	worldSpace = append(worldSpace, importObject(axes, 0.0, 0.0, 0.0))
+	// Add some objects to the world space
+	worldSpace = make(map[string]Object, 1)
+	worldSpace["ob1"] = importObject(object1, 5.0, 3.0, 0.0)
+	worldSpace["ob1 copy"] = importObject(object1, -1.0, 3.0, 0.0)
+	worldSpace["ob2"] = importObject(object2, 5.0, -3.0, 1.0)
+	worldSpace["ob3"] = importObject(object3, -1.0, 0.0, -1.0)
 
-	// Create a graph object with the main data points on it
-	var firstDeriv, graph Object
-	var p Point
-	graphLabeled := false
-	for x := -2.1; x <= 2.2; x += 0.05 {
-		p = Point{X: x, Y: x * x * x} // y = x^3
-		if !graphLabeled {
-			p.Label = " Equation: y = x³ "
-			p.LabelAlign = "right"
-			graphLabeled = true
-		}
-		graph.P = append(graph.P, p)
-	}
-	graph.C = "blue"
-	graph.DrawOrder = 1
-	graph.Name = "graph"
-	worldSpace = append(worldSpace, importObject(graph, 0.0, 0.0, 0.0))
+	// Scale them up a bit
+	queueOp = SCALE
+	queueParts = 1
+	transformMatrix = scale(transformMatrix, 2.0, 2.0, 2.0)
+	applyTransformation()
 
-	// Create a graph object with the 1st order derivative points on it
-	graphLabeled = false
-	for x := -2.1; x <= 2.2; x += pointStep {
-		p = Point{X: x, Y: 3 * (x * x)} // y = 3x^2
-		if !graphLabeled {
-			p.Label = " 1st order derivative: y = 3x² "
-			p.LabelAlign = "right"
-			graphLabeled = true
-		}
-		firstDeriv.P = append(firstDeriv.P, p)
-	}
-	firstDeriv.C = "green"
-	firstDeriv.DrawOrder = 2
-	firstDeriv.Name = "firstDeriv"
-	worldSpace = append(worldSpace, importObject(firstDeriv, 0.0, 0.0, 0.0))
+	// Start a rotation going
+	setUpOperation(ROTATE, 50, 12, stepSize, stepSize, stepSize)
 }
 
 // Apply each transformation, one small part at a time (this gives the animation effect)
@@ -299,8 +326,8 @@ func moveHandler(cx int, cy int) {
 //go:export renderFrame
 func renderFrame() {
 	// Handle window resizing
-	curBodyW := js.Global().Get("innerWidth").Int()
-	curBodyH := js.Global().Get("innerHeight").Int()
+	curBodyW := js.Global().Get("innerWidth").Float()
+	curBodyH := js.Global().Get("innerHeight").Float()
 	if curBodyW != width || curBodyH != height {
 		width, height = curBodyW, curBodyH
 		canvasEl.Set("width", width)
@@ -321,6 +348,17 @@ func renderFrame() {
 	ctx.Set("fillStyle", "white")
 	ctx.Call("fillRect", 0, 0, width, height)
 
+	// Save the current graphics state - no clip region currently defined - as the default
+	ctx.Call("save")
+
+	// Set the clip region so drawing only occurs in the display area
+	ctx.Call("beginPath")
+	ctx.Call("moveTo", 0, 0)
+	ctx.Call("lineTo", graphWidth, 0)
+	ctx.Call("lineTo", graphWidth, height)
+	ctx.Call("lineTo", 0, height)
+	ctx.Call("clip")
+
 	// Draw grid lines
 	step := math.Min(float64(width), float64(height)) / float64(30)
 	ctx.Set("strokeStyle", "rgb(220, 220, 220)")
@@ -339,11 +377,19 @@ func renderFrame() {
 		ctx.Call("stroke")
 	}
 
-	// Draw the axes
+	// Sort the objects by mid point Z depth order
+	var order paintOrderSlice
+	for i, j := range worldSpace {
+		order = append(order, paintOrder{name: i, midZ: j.Mid.Z})
+	}
+	sort.Sort(paintOrderSlice(order))
+
+	// Draw the objects, in Z depth order
 	var pointX, pointY float64
-	ctx.Set("strokeStyle", "black")
-	ctx.Set("lineWidth", "1")
-	for _, o := range worldSpace {
+	numWld := len(worldSpace)
+	for i := 0; i < numWld; i++ {
+		o := worldSpace[order[i].name]
+
 		// Draw the surfaces
 		ctx.Set("fillStyle", o.C)
 		for _, l := range o.S {
@@ -362,6 +408,9 @@ func renderFrame() {
 		}
 
 		// Draw the edges
+		ctx.Set("strokeStyle", "black")
+		ctx.Set("fillStyle", "black")
+		ctx.Set("lineWidth", "1")
 		var point1X, point1Y, point2X, point2Y float64
 		for _, l := range o.E {
 			point1X = o.P[l[0]].X
@@ -374,63 +423,31 @@ func renderFrame() {
 			ctx.Call("stroke")
 		}
 
-		// Draw any point labels
-		ctx.Set("fillStyle", "black")
-		ctx.Set("font", "bold 16px serif")
+		// Draw the points on the graph
 		var px, py float64
 		for _, l := range o.P {
-			if l.Label != "" {
-				ctx.Set("textAlign", l.LabelAlign)
-				px = centerX + (l.X * step)
-				py = centerY + ((l.Y * step) * -1)
-				ctx.Call("fillText", l.Label, px, py)
-			}
-		}
-	}
-
-	// Draw the graph and derivatives
-	ctx.Set("lineWidth", "2")
-	var px, py float64
-	numWld := len(worldSpace)
-	for i := 0; i < numWld; i++ {
-		o := worldSpace[i]
-		if o.Name != "axes" {
-			// Draw lines between the points
-			ctx.Set("strokeStyle", o.C)
+			px = centerX + (l.X * step)
+			py = centerY + ((l.Y * step) * -1)
 			ctx.Call("beginPath")
-			for k, l := range o.P {
-				px = centerX + (l.X * step)
-				py = centerY + ((l.Y * step) * -1)
-				if k == 0 {
-					ctx.Call("moveTo", px, py)
-				} else {
-					ctx.Call("lineTo", px, py)
-				}
-			}
-			ctx.Call("stroke")
-
-			// Draw dots for the points
-			ctx.Set("fillStyle", "black")
-			for _, l := range o.P {
-				px = centerX + (l.X * step)
-				py = centerY + ((l.Y * step) * -1)
-				ctx.Call("beginPath")
-				ctx.Call("ellipse", px, py, 1, 1, 0, 0, 2*math.Pi)
-				ctx.Call("fill")
-				ctx.Call("stroke")
-			}
+			ctx.Call("arc", px, py, 1, 0, 2*math.Pi)
+			ctx.Call("fill")
 		}
 	}
 
-	// Clear the information area (right side)
-	ctx.Set("fillStyle", "white")
-	ctx.Call("fillRect", graphWidth+1, 0, width, height)
+	// Set the clip region so drawing only occurs in the display area
+	ctx.Call("restore")
+	ctx.Call("save")
+	ctx.Call("beginPath")
+	ctx.Call("moveTo", graphWidth, 0)
+	ctx.Call("lineTo", width, 0)
+	ctx.Call("lineTo", width, height)
+	ctx.Call("lineTo", graphWidth, height)
+	ctx.Call("clip")
 
 	// Draw the text describing the current operation
 	textY := top + 20
 	ctx.Set("fillStyle", "black")
 	ctx.Set("font", "bold 14px serif")
-	ctx.Set("textAlign", "left")
 	ctx.Call("fillText", "Operation:", graphWidth+20, textY)
 	textY += 20
 	ctx.Set("font", "14px sans-serif")
@@ -450,22 +467,6 @@ func renderFrame() {
 	textY += 20
 	ctx.Call("fillText", "stop the current change.", graphWidth+20, textY)
 	textY += 40
-
-	// Add the graph and derivatives information
-	ctx.Set("fillStyle", "black")
-	ctx.Set("font", "bold 18px serif")
-	ctx.Call("fillText", "Equation", graphWidth+20, textY)
-	textY += 20
-	ctx.Set("font", "16px sans-serif")
-	ctx.Call("fillText", "y = x³", graphWidth+40, textY)
-	textY += 30
-
-	// Add the derivatives information
-	ctx.Set("font", "bold 18px serif")
-	ctx.Call("fillText", "1st order derivative", graphWidth+20, textY)
-	textY += 20
-	ctx.Set("font", "16px sans-serif")
-	ctx.Call("fillText", "y = 3x²", graphWidth+40, textY)
 
 	// Clear the source code link area
 	ctx.Set("fillStyle", "white")
@@ -502,6 +503,9 @@ func renderFrame() {
 	ctx.Call("lineTo", border, graphHeight)
 	ctx.Call("closePath")
 	ctx.Call("stroke")
+
+	// Restore the default graphics state (eg no clip region)
+	ctx.Call("restore")
 }
 
 // Simple mouse handler watching for mouse wheel events
@@ -528,22 +532,30 @@ func importObject(ob Object, x float64, y float64, z float64) (translatedObject 
 	}
 
 	// Translate the points
+	var midX, midY, midZ float64
 	var pt Point
 	for _, j := range ob.P {
 		pt = Point{
-			Label:      j.Label,
-			LabelAlign: j.LabelAlign,
-			X:          (translateMatrix[0] * j.X) + (translateMatrix[1] * j.Y) + (translateMatrix[2] * j.Z) + (translateMatrix[3] * 1),   // 1st col, top
-			Y:          (translateMatrix[4] * j.X) + (translateMatrix[5] * j.Y) + (translateMatrix[6] * j.Z) + (translateMatrix[7] * 1),   // 1st col, upper middle
-			Z:          (translateMatrix[8] * j.X) + (translateMatrix[9] * j.Y) + (translateMatrix[10] * j.Z) + (translateMatrix[11] * 1), // 1st col, lower middle
+			Num: pointCounter,
+			X:   (translateMatrix[0] * j.X) + (translateMatrix[1] * j.Y) + (translateMatrix[2] * j.Z) + (translateMatrix[3] * 1),   // 1st col, top
+			Y:   (translateMatrix[4] * j.X) + (translateMatrix[5] * j.Y) + (translateMatrix[6] * j.Z) + (translateMatrix[7] * 1),   // 1st col, upper middle
+			Z:   (translateMatrix[8] * j.X) + (translateMatrix[9] * j.Y) + (translateMatrix[10] * j.Z) + (translateMatrix[11] * 1), // 1st col, lower middle
 		}
 		translatedObject.P = append(translatedObject.P, pt)
+		midX = pt.X
+		midY = pt.Y
+		midZ = pt.Z
+		pointCounter++
 	}
 
-	// Copy the remaining object info across
+	// Determine the mid point for the object
+	numPts := float64(len(ob.P))
+	translatedObject.Mid.X = midX / numPts
+	translatedObject.Mid.Y = midY / numPts
+	translatedObject.Mid.Z = midZ / numPts
+
+	// Copy the colour, edge, and surface definitions across
 	translatedObject.C = ob.C
-	translatedObject.Name = ob.Name
-	translatedObject.DrawOrder = ob.DrawOrder
 	for _, j := range ob.E {
 		translatedObject.E = append(translatedObject.E, j)
 	}
@@ -704,8 +716,7 @@ func transform(m matrix, p Point) (t Point) {
 	//bot2 := m[14]
 	//bot3 := m[15]
 
-	t.Label = p.Label
-	t.LabelAlign = p.LabelAlign
+	t.Num = p.Num
 	t.X = (top0 * p.X) + (top1 * p.Y) + (top2 * p.Z) + top3
 	t.Y = (upperMid0 * p.X) + (upperMid1 * p.Y) + (upperMid2 * p.Z) + upperMid3
 	t.Z = (lowerMid0 * p.X) + (lowerMid1 * p.Y) + (lowerMid2 * p.Z) + lowerMid3
