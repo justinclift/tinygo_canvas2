@@ -7,4 +7,4 @@ The running version of this is here:
 
 To compile the WebAssembly file:
 
-    $ tinygo build -target wasm -gc conservative -no-debug -o docs/wasm.wasm wasm.go
+    $ tinygo build -target wasm -no-debug -o docs/wasm.wasm wasm.go

@@ -216,25 +216,17 @@ func applyTransformation() {
 		return
 	}
 
-	// If the queue # if greater than zero, there are still transforms to do
 	for j, o := range worldSpace {
-		var midX, midY, midZ float64
 		var newPoints []Point
-
-		// Transform each point of in the object
+		// Transform each point in the object
 		for _, j := range o.P {
 			newPoints = append(newPoints, transform(transformMatrix, j))
-			midX += j.X
-			midY += j.Y
-			midZ += j.Z
 		}
 		o.P = newPoints
 
-		// Calculate the new mid point for the object
-		numPts := float64(len(o.P))
-		o.Mid.X = midX / numPts
-		o.Mid.Y = midY / numPts
-		o.Mid.Z = midZ / numPts
+		// Transform the mid point of the object.  In theory, this should mean the mid point can always be used
+		// for a simple (not-cpu-intensive) way to sort the objects in Z depth order
+		o.Mid = transform(transformMatrix, o.Mid)
 
 		// Update the object in world space
 		worldSpace[j] = o
