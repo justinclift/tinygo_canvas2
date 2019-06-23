@@ -218,17 +218,28 @@ func applyTransformation() {
 
 	// If the queue # if greater than zero, there are still transforms to do
 	for j, o := range worldSpace {
+		var midX, midY, midZ float64
 		var newPoints []Point
 
 		// Transform each point of in the object
 		for _, j := range o.P {
 			newPoints = append(newPoints, transform(transformMatrix, j))
+			midX += j.X
+			midY += j.Y
+			midZ += j.Z
 		}
 		o.P = newPoints
+
+		// Calculate the new mid point for the object
+		numPts := float64(len(o.P))
+		o.Mid.X = midX / numPts
+		o.Mid.Y = midY / numPts
+		o.Mid.Z = midZ / numPts
 
 		// Update the object in world space
 		worldSpace[j] = o
 	}
+
 	queueParts--
 }
 
@@ -548,9 +559,9 @@ func importObject(ob Object, x float64, y float64, z float64) (translatedObject 
 			Z:   (translateMatrix[8] * j.X) + (translateMatrix[9] * j.Y) + (translateMatrix[10] * j.Z) + (translateMatrix[11] * 1), // 1st col, lower middle
 		}
 		translatedObject.P = append(translatedObject.P, pt)
-		midX = pt.X
-		midY = pt.Y
-		midZ = pt.Z
+		midX += pt.X
+		midY += pt.Y
+		midZ += pt.Z
 		pointCounter++
 	}
 
