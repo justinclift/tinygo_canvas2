@@ -168,7 +168,7 @@ var (
 	width, height      float64
 	opText             string
 	highLightSource    bool
-	stepSize           = float64(30)
+	stepSize           = float64(15)
 
 	// Queue operations
 	prevKey    int
@@ -203,6 +203,9 @@ func main() {
 
 	// Start a rotation going
 	setUpOperation(ROTATE, 50, 12, stepSize, stepSize, stepSize)
+
+	// Start the frame renderer
+	js.Global().Call("requestAnimationFrame", js.Global().Get("renderFrame"))
 }
 
 // Apply each transformation, one small part at a time (this gives the animation effect)
@@ -506,6 +509,9 @@ func renderFrame() {
 
 	// Restore the default graphics state (eg no clip region)
 	ctx.Call("restore")
+
+	// Keep the frame rendering going
+	js.Global().Call("requestAnimationFrame", js.Global().Get("renderFrame"))
 }
 
 // Simple mouse handler watching for mouse wheel events

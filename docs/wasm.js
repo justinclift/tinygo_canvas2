@@ -4,8 +4,9 @@ const WASM_URL = 'wasm.wasm';
 
 var wasm;
 
-function clearCanvas() {
-  wasm.exports.clearCanvas();
+// Apply the matrix transformations
+function applyTransformation() {
+    wasm.exports.applyTransformation();
 }
 
 // Pass mouse clicks through to the wasm handler
@@ -92,8 +93,8 @@ function moveHandler(evt) {
   wasm.exports.moveHandler(evt.clientX, evt.clientY);
 }
 
-function renderFrames() {
-    wasm.exports.applyTransformation();
+// Render one frame of the animation
+function renderFrame() {
     wasm.exports.renderFrame();
 }
 
@@ -118,8 +119,8 @@ function init() {
 
       // Set up basic render loop
       setInterval(function() {
-        renderFrames();
-      },50);
+          applyTransformation();
+      },25);
     })
   } else {
     fetch(WASM_URL).then(resp =>
@@ -137,8 +138,8 @@ function init() {
 
         // Set up basic render loop
         setInterval(function() {
-          renderFrames();
-        },50);
+            applyTransformation();
+        },25);
       })
     )
   }
