@@ -112,8 +112,8 @@ function init() {
       go.run(wasm);
 
       // Set up wasm event handlers
+      document.addEventListener("keydown", keyPressHandler);
       document.getElementById("mycanvas").addEventListener("mousedown", clickHandler);
-      document.getElementById("mycanvas").addEventListener("keydown", keyPressHandler);
       document.getElementById("mycanvas").addEventListener("mousemove", moveHandler);
       document.getElementById("mycanvas").addEventListener("wheel", wheelHandler);
 

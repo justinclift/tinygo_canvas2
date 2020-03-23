@@ -28,7 +28,8 @@ type Object struct {
 }
 
 const (
-	KEY_MOVE_LEFT int = iota + 1
+	KEY_NONE int = iota
+	KEY_MOVE_LEFT
 	KEY_MOVE_RIGHT
 	KEY_MOVE_UP
 	KEY_MOVE_DOWN
@@ -175,7 +176,7 @@ var (
 	queueOp    OperationType
 	queueParts int32
 
-	debug = true
+	debug = false
 )
 
 func main() {
@@ -527,6 +528,7 @@ func wheelHandler(val int32) {
 		println("Wheel delta: " + strconv.FormatInt(wheelDelta, 10) + " scaleSize: " + strconv.FormatFloat(scaleSize, 'f', 1, 64) + "\n")
 	}
 	setUpOperation(SCALE, 50, 12, scaleSize, scaleSize, scaleSize)
+	prevKey = KEY_NONE
 }
 
 // Returns an object whose points have been transformed into 3D world space XYZ co-ordinates.  Also assigns a number
