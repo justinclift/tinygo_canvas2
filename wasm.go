@@ -175,7 +175,7 @@ var (
 	queueOp    OperationType
 	queueParts int32
 
-	debug = false
+	debug = true
 )
 
 func main() {
@@ -524,7 +524,7 @@ func wheelHandler(val int32) {
 	wheelDelta := int64(val)
 	scaleSize := 1 + (float64(wheelDelta) / 5)
 	if debug {
-		println("Wheel delta: " + strconv.FormatInt(wheelDelta, 10) + " scaleSize: " + strconv.FormatInt(wheelDelta, 10) + "\n")
+		println("Wheel delta: " + strconv.FormatInt(wheelDelta, 10) + " scaleSize: " + strconv.FormatFloat(scaleSize, 'f', 1, 64) + "\n")
 	}
 	setUpOperation(SCALE, 50, 12, scaleSize, scaleSize, scaleSize)
 }
